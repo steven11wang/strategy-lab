@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategy Lab</title>
+<meta name="description" content="Five paper strategies, $2,000 each, run forward daily. Simulated ledger, no real orders.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #16181d; --muted: #6b7079; --line: #e4e4e0;
+  --up: #12805c; --down: #c2412d; --accent: #2f5bd3;
+  --s1: #6b7079; --s2: #2f5bd3; --s3: #b7791f; --s4: #12805c; --s5: #9b3fb5;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --panel: #171a20; --ink: #e8e9ec; --muted: #8b909a; --line: #262a32;
+    --up: #3ccf91; --down: #ff7a63; --accent: #7aa2ff;
+    --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --panel: #171a20; --ink: #e8e9ec; --muted: #8b909a; --line: #262a32;
+  --up: #3ccf91; --down: #ff7a63; --accent: #7aa2ff;
+  --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
+main { max-width: 1080px; margin: 0 auto; padding: 32px 16px 64px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 24px; }
+h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0; }
+.sub { color: var(--muted); font-size: 13px; }
+.total { text-align: right; }
+.total .big { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+.chart { position: relative; height: 320px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+tr:last-child td { border-bottom: 0; }
+.scroll { overflow-x: auto; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
+.up { color: var(--up); } .down { color: var(--down); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.grid .panel { margin: 0; }
+h2 { font-size: 16px; margin: 0 0 4px; }
+h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 14px 0 6px; font-weight: 500; }
+.mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; }
+.list { list-style: none; padding: 0; margin: 0; }
+.list li { padding: 6px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; }
+.list li:last-child { border-bottom: 0; }
+.why { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
+footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Strategy Lab</h1>
+      <div class="sub">5 paper strategies · $2,000 each · decided at each close · simulated ledger, no real orders</div>
+    </div>
+    <div class="total">
+      <div class="big" id="total">–</div>
+      <div class="sub" id="totalsub">–</div>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="chart"><canvas id="curve" aria-label="Equity curve per strategy" role="img"></canvas></div>
+  </section>
+
+  <section class="panel scroll">
+    <table>
+      <thead><tr><th>Strategy</th><th>Equity</th><th>Return</th><th>vs SPY</th><th>Max DD</th><th>Closed</th><th>Win rate</th><th>Profit factor</th><th>Open</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+
+  <section class="grid" id="cards"></section>
+
+  <footer id="foot"></footer>
+</main>
+<script>
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const usd = v => "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = v => v == null ? "–" : (v >= 0 ? "+" : "") + (v * 100).toFixed(2) + "%";
+const cls = v => v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const COLORS = ["--s1", "--s2", "--s3", "--s4", "--s5"];
+
+fetch("data.json?" + Date.now()).then(r => r.json()).then(d => {
+  const ret = d.total_equity / d.start_total - 1;
+  document.getElementById("total").textContent = usd(d.total_equity);
+  document.getElementById("totalsub").innerHTML = `<span class="${cls(ret)}">${pct(ret)}</span> on ${usd(d.start_total)} · updated ${esc(d.updated)}`;
+  const bench = d.sleeves.find(s => s.name === "benchmark");
+  const bret = bench ? bench.metrics.return : 0;
+
+  document.getElementById("rows").innerHTML = d.sleeves.map((s, i) => {
+    const m = s.metrics, vs = s.name === "benchmark" ? null : m.return - bret;
+    return `<tr>
+      <td><span class="dot" style="background:${css(COLORS[i])}"></span>${esc(s.label)}</td>
+      <td>${usd(m.equity)}</td><td class="${cls(m.return)}">${pct(m.return)}</td>
+      <td class="${cls(vs)}">${s.name === "benchmark" ? "—" : pct(vs)}</td>
+      <td class="${cls(m.max_dd)}">${pct(m.max_dd)}</td><td>${m.closed}</td>
+      <td>${m.win_rate == null ? "–" : (m.win_rate * 100).toFixed(0) + "%"}</td>
+      <td>${m.profit_factor == null ? "–" : m.profit_factor.toFixed(2)}</td><td>${m.open}</td></tr>`;
+  }).join("");
+
+  document.getElementById("cards").innerHTML = d.sleeves.map((s, i) => {
+    const pos = s.positions.length ? `<ul class="list mono">${s.positions.map(p => `<li><span>${esc(p.sym)}</span><span>${(+p.qty).toFixed(3)} @ ${(+p.entry).toFixed(2)}${p.stop ? ` · stop ${(+p.stop).toFixed(2)} · tgt ${(+p.target).toFixed(2)}` : ""}</span></li>`).join("")}</ul>` : `<div class="empty">In cash.</div>`;
+    const tr = s.trades.length ? `<ul class="list">${s.trades.slice(0, 8).map(t => `<li><span class="mono">${esc(t.date)} ${t.side.toUpperCase()} ${esc(t.sym)}</span><span class="mono ${t.pnl != null ? cls(t.pnl) : ""}">${t.pnl != null ? (t.pnl >= 0 ? "+" : "") + usd(t.pnl).replace("$-", "-$") : usd(t.usd)}</span></li><li class="why" style="border:0;padding-top:0">${esc(t.why)}</li>`).join("")}</ul>` : `<div class="empty">No trades yet.</div>`;
+    return `<div class="panel"><h2><span class="dot" style="background:${css(COLORS[i])}"></span>${esc(s.label)}</h2>
+      <h3>Open positions</h3>${pos}<h3>Recent trades</h3>${tr}</div>`;
+  }).join("");
+
+  const dates = [...new Set(d.sleeves.flatMap(s => s.equity.map(e => e[0])))].sort();
+  new Chart(document.getElementById("curve"), {
+    type: "line",
+    data: { labels: dates, datasets: d.sleeves.map((s, i) => {
+      const map = Object.fromEntries(s.equity);
+      return { label: s.label, data: dates.map(x => map[x] ?? null), borderColor: css(COLORS[i]),
+               backgroundColor: css(COLORS[i]), borderWidth: s.name === "benchmark" ? 1.5 : 2.2,
+               borderDash: s.name === "benchmark" ? [5, 4] : [], pointRadius: dates.length < 15 ? 3 : 0, tension: 0.2, spanGaps: true };
+    }) },
+    options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+      plugins: { legend: { position: "bottom", labels: { color: css("--muted"), boxWidth: 10, boxHeight: 10, usePointStyle: true } },
+                 tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${usd(c.parsed.y)}` } } },
+      scales: { x: { ticks: { color: css("--muted"), maxRotation: 0, autoSkip: true }, grid: { color: css("--line") } },
+                y: { ticks: { color: css("--muted"), callback: v => "$" + v.toLocaleString() }, grid: { color: css("--line") } } } }
+  });
+
+  document.getElementById("foot").textContent = "Paper only. Fills at the session close ±5 bps, fractional shares, a local ledger, no broker. Forward test started " + (dates[0] || "–") + ". Education, not financial advice.";
+}).catch(e => { document.getElementById("total").textContent = "no data yet"; });
+</script>
+</body>
+</html>

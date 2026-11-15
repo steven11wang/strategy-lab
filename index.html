@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Strategy Lab</title>
-<meta name="description" content="Five paper strategies, $2,000 each, run forward daily. Simulated ledger, no real orders.">
+<meta name="description" content="Six paper strategies, $2,000 each, run forward daily. Simulated ledger, no real orders.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -12,19 +12,19 @@
 :root {
   --bg: #f7f7f5; --panel: #ffffff; --ink: #16181d; --muted: #6b7079; --line: #e4e4e0;
   --up: #12805c; --down: #c2412d; --accent: #2f5bd3;
-  --s1: #6b7079; --s2: #2f5bd3; --s3: #b7791f; --s4: #12805c; --s5: #9b3fb5;
+  --s1: #6b7079; --s2: #2f5bd3; --s3: #b7791f; --s4: #12805c; --s5: #9b3fb5; --s6: #c2410c;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f1115; --panel: #171a20; --ink: #e8e9ec; --muted: #8b909a; --line: #262a32;
     --up: #3ccf91; --down: #ff7a63; --accent: #7aa2ff;
-    --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6;
+    --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6; --s6: #fb923c;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f1115; --panel: #171a20; --ink: #e8e9ec; --muted: #8b909a; --line: #262a32;
   --up: #3ccf91; --down: #ff7a63; --accent: #7aa2ff;
-  --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6;
+  --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6; --s6: #fb923c;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
@@ -62,7 +62,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
   <header>
     <div>
       <h1>Strategy Lab</h1>
-      <div class="sub">5 paper strategies · $2,000 each · decided at each close · simulated ledger, no real orders</div>
+      <div class="sub">6 paper strategies · $2,000 each · decided at each close · simulated ledger, no real orders</div>
     </div>
     <div class="total">
       <div class="big" id="total">–</div>
@@ -91,7 +91,7 @@ const usd = v => "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, max
 const pct = v => v == null ? "–" : (v >= 0 ? "+" : "") + (v * 100).toFixed(2) + "%";
 const cls = v => v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "";
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const COLORS = ["--s1", "--s2", "--s3", "--s4", "--s5"];
+const COLORS = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6"];
 const MIN_TRADES = 30;  // fewer closed trades than this is noise, not a result
 
 fetch("data.json?" + Date.now()).then(r => r.json()).then(d => {
@@ -102,7 +102,11 @@ fetch("data.json?" + Date.now()).then(r => r.json()).then(d => {
   const bret = bench ? bench.metrics.return : 0;
 
   document.getElementById("rows").innerHTML = d.sleeves.map((s, i) => {
-    const m = s.metrics, vs = s.name === "benchmark" ? null : m.return - bret;
+    // compare over the sleeve's own life: a sleeve added later is not credited with SPY's earlier moves
+    const m = s.metrics, t0 = s.equity.length ? s.equity[0][0] : null;
+    const late = bench && t0 && bench.equity.length && t0 > bench.equity[0][0];
+    const b0 = late ? (bench.equity.find(e => e[0] === t0) || [])[1] : null;
+    const vs = s.name === "benchmark" ? null : m.return - (b0 ? bench.metrics.equity / b0 - 1 : bret);
     return `<tr>
       <td><span class="dot" style="background:${css(COLORS[i])}"></span>${esc(s.label)}</td>
       <td>${usd(m.equity)}</td><td class="${cls(m.return)}">${pct(m.return)}</td>

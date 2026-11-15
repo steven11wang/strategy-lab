@@ -76,7 +76,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
 
   <section class="panel scroll">
     <table>
-      <thead><tr><th>Strategy</th><th>Equity</th><th>Return</th><th>vs SPY</th><th>Max DD</th><th>Closed</th><th>Win rate</th><th>Profit factor</th><th>Open</th></tr></thead>
+      <thead><tr><th>Strategy</th><th>Equity</th><th>Return</th><th>vs SPY</th><th>Max DD</th><th>Closed</th><th>Win rate</th><th>Profit factor</th><th>Open</th><th>Verdict</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
   </section>
@@ -92,6 +92,7 @@ const pct = v => v == null ? "–" : (v >= 0 ? "+" : "") + (v * 100).toFixed(2) 
 const cls = v => v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "";
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const COLORS = ["--s1", "--s2", "--s3", "--s4", "--s5"];
+const MIN_TRADES = 30;  // fewer closed trades than this is noise, not a result
 
 fetch("data.json?" + Date.now()).then(r => r.json()).then(d => {
   const ret = d.total_equity / d.start_total - 1;
@@ -108,7 +109,8 @@ fetch("data.json?" + Date.now()).then(r => r.json()).then(d => {
       <td class="${cls(vs)}">${s.name === "benchmark" ? "—" : pct(vs)}</td>
       <td class="${cls(m.max_dd)}">${pct(m.max_dd)}</td><td>${m.closed}</td>
       <td>${m.win_rate == null ? "–" : (m.win_rate * 100).toFixed(0) + "%"}</td>
-      <td>${m.profit_factor == null ? "–" : m.profit_factor.toFixed(2)}</td><td>${m.open}</td></tr>`;
+      <td>${m.profit_factor == null ? "–" : m.profit_factor.toFixed(2)}</td><td>${m.open}</td>
+      <td class="why">${s.name === "benchmark" ? "the bar to beat" : m.closed < MIN_TRADES ? `too early (${m.closed}/${MIN_TRADES} trades)` : vs > 0 ? "ahead of SPY" : "behind SPY"}</td></tr>`;
   }).join("");
 
   document.getElementById("cards").innerHTML = d.sleeves.map((s, i) => {
@@ -134,7 +136,7 @@ fetch("data.json?" + Date.now()).then(r => r.json()).then(d => {
                 y: { ticks: { color: css("--muted"), callback: v => "$" + v.toLocaleString() }, grid: { color: css("--line") } } } }
   });
 
-  document.getElementById("foot").textContent = "Paper only. Fills at the session close ±5 bps, fractional shares, a local ledger, no broker. Forward test started " + (dates[0] || "–") + ". Education, not financial advice.";
+  document.getElementById("foot").textContent = "Paper only. Fills at the session close ±5 bps, fractional shares, a local ledger, no broker. Forward test started " + (dates[0] || "–") + ". A sleeve is judged against buy-and-hold SPY, and only after " + MIN_TRADES + " closed trades. Education, not financial advice.";
 }).catch(e => { document.getElementById("total").textContent = "no data yet"; });
 </script>
 </body>

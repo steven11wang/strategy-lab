@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Strategy Lab</title>
-<meta name="description" content="Seven paper strategies, $2,000 each, run forward daily. Simulated ledger, no real orders.">
+<meta name="description" content="Eight paper strategies, $2,000 each, run forward daily. Simulated ledger, no real orders.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -12,19 +12,19 @@
 :root {
   --bg: #f7f7f5; --panel: #ffffff; --ink: #16181d; --muted: #6b7079; --line: #e4e4e0;
   --up: #12805c; --down: #c2412d; --accent: #2f5bd3;
-  --s1: #6b7079; --s2: #2f5bd3; --s3: #b7791f; --s4: #12805c; --s5: #9b3fb5; --s6: #c2410c; --s7: #0e7490;
+  --s1: #6b7079; --s2: #2f5bd3; --s3: #b7791f; --s4: #12805c; --s5: #9b3fb5; --s6: #c2410c; --s7: #0e7490; --s8: #be185d;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f1115; --panel: #171a20; --ink: #e8e9ec; --muted: #8b909a; --line: #262a32;
     --up: #3ccf91; --down: #ff7a63; --accent: #7aa2ff;
-    --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6; --s6: #fb923c; --s7: #22d3ee;
+    --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6; --s6: #fb923c; --s7: #22d3ee; --s8: #f472b6;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f1115; --panel: #171a20; --ink: #e8e9ec; --muted: #8b909a; --line: #262a32;
   --up: #3ccf91; --down: #ff7a63; --accent: #7aa2ff;
-  --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6; --s6: #fb923c; --s7: #22d3ee;
+  --s1: #8b909a; --s2: #7aa2ff; --s3: #e0a940; --s4: #3ccf91; --s5: #cf7ee6; --s6: #fb923c; --s7: #22d3ee; --s8: #f472b6;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
@@ -62,7 +62,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
   <header>
     <div>
       <h1>Strategy Lab</h1>
-      <div class="sub">7 paper strategies · $2,000 each · decided at each close · simulated ledger, no real orders</div>
+      <div class="sub">8 paper sleeves · $2,000 each · decided at each close · simulated ledger, no real orders</div>
     </div>
     <div class="total">
       <div class="big" id="total">–</div>
@@ -91,7 +91,7 @@ const usd = v => "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, max
 const pct = v => v == null ? "–" : (v >= 0 ? "+" : "") + (v * 100).toFixed(2) + "%";
 const cls = v => v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "";
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const COLORS = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7"];
+const COLORS = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7", "--s8"];
 const MIN_TRADES = 30;  // fewer closed trades than this is noise, not a result
 const MIN_SESSIONS = 250;  // ...unless the sleeve trades rarely: then one year of sessions
 
@@ -121,6 +121,14 @@ fetch("data.json?" + Date.now()).then(r => r.json()).then(d => {
   document.getElementById("cards").innerHTML = d.sleeves.map((s, i) => {
     const pos = s.positions.length ? `<ul class="list mono">${s.positions.map(p => `<li><span>${esc(p.sym)}</span><span>${(+p.qty).toFixed(3)} @ ${(+p.entry).toFixed(2)}${p.stop ? ` · stop ${(+p.stop).toFixed(2)} · tgt ${(+p.target).toFixed(2)}` : ""}</span></li>`).join("")}</ul>` : `<div class="empty">In cash.</div>`;
     const tr = s.trades.length ? `<ul class="list">${s.trades.slice(0, 8).map(t => `<li><span class="mono">${esc(t.date)} ${t.side.toUpperCase()} ${esc(t.sym)}</span><span class="mono ${t.pnl != null ? cls(t.pnl) : ""}">${t.pnl != null ? (t.pnl >= 0 ? "+" : "") + usd(t.pnl).replace("$-", "-$") : usd(t.usd)}</span></li><li class="why" style="border:0;padding-top:0">${esc(t.why)}</li>`).join("")}</ul>` : `<div class="empty">No trades yet.</div>`;
+    if (s.learned) {
+      const L = s.learned, lab = n => (d.sleeves.find(x => x.name === n) || {}).label || n;
+      const rows = Object.keys(L.weights).sort((a, b) => L.weights[b] - L.weights[a]).map(n => { const b = L.beliefs[n] || {};
+        return `<li><span>${esc(lab(n))}</span><span class="mono">${(L.weights[n] * 100).toFixed(1)}% → ${((L.target[n] || 0) * 100).toFixed(0)}%</span></li><li class="why" style="border:0;padding-top:0">believed ${pct(b.believed)}/yr · prior ${pct(b.prior)} · seen ${pct(b.observed)} over ${b.sessions} sessions</li>`; }).join("");
+      return `<div class="panel"><h2><span class="dot" style="background:${css(COLORS[i])}"></span>${esc(s.label)}</h2>
+        <h3>Weight now → target</h3><ul class="list">${rows}</ul>
+        <div class="why">Belief = prior from backtests, pulled toward live results (two years of sessions weigh as much as the prior). Weights move at most 1 point a session.</div></div>`;
+    }
     return `<div class="panel"><h2><span class="dot" style="background:${css(COLORS[i])}"></span>${esc(s.label)}</h2>
       <h3>Open positions</h3>${pos}<h3>Recent trades</h3>${tr}</div>`;
   }).join("");
